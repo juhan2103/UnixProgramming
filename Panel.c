@@ -364,7 +364,7 @@ void *updateRPM(void *arg)
     if (sync_th != 1)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    rpmChart = (int)((double)*rpmVal / 50);
+    rpmChart = (int)((double)*rpmVal / 500);
     for (i = 0; i < 12; i++)
     {
       move_cur(RPM_X, CHART_SPACE - i);
