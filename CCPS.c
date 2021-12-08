@@ -163,10 +163,10 @@ void drawInfo()
   {
     move_cur(SPEED_X - 4, i + 5);
     if (i % 2 != 0)
-      printf("%3d", (NAME_SPACE - 3 - i) * 20);
+      printf("%3d", (NAME_SPACE - 3 - i) * 2);
   }
   move_cur(SPEED_X - 2, NAME_SPACE);
-  printf("%5s", "SPEED");
+  printf("%5s", "TEMP");
   move_cur(SPEED_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
@@ -250,20 +250,20 @@ void simulMenu()
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
     move_cur(0, SIMUL_SPACE);
-    printf("Please input Speed (20~160) >>");
+    printf("Please input temperature (10~20) >>");
     __fpurge(stdin); //리눅스에서 __fpurge(stdin)
     scanf("%d", &p1Speed);
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
-    if (p1Speed <= 160 && p1Speed >= 20)
+    if (p1Speed <= 20 && p1Speed >= 10)
     {
       move_cur(0, SIMUL_SPACE - 1);
       printf("                        ");
       move_cur(0, SIMUL_SPACE);
-      printf("Please input Acceleration (1~10) >>");
+      printf("Please input Cooling level (1~3) >>");
       __fpurge(stdin); //리눅스에서 __fpurge(stdin)
       scanf("%d", &p1Acc);
-      if (p1Acc >= 1 && p1Acc <= 10)
+      if (p1Acc >= 1 && p1Acc <= 3)
       {
         //이부분에 프로세스간 통신 작성하면 됨
         write(pipe1[1], &p1Speed, sizeof(int));
@@ -327,7 +327,7 @@ void *updateSpeed(void *arg)
 
     pthread_mutex_lock(&cursorMutex);
 
-    speedChart = (int)((double)speed / 30);
+    speedChart = (int)((double)speed / 3);
     for (i = 0; i < 10; i++)
     {
       move_cur(SPEED_X, CHART_SPACE - i);
@@ -521,11 +521,11 @@ void *Figures_Speed(void *arg)
 		}*/
 
     pthread_mutex_lock(&mut);
-    if (Speed < 220)
+    if (Speed < 5)
     {
       Speed += Acceleration;
     }
-    else if (Speed >= 220)
+    else if (Speed >= 5)
     {
       Speed -= Acceleration;
     }
@@ -548,7 +548,7 @@ void *Figures_RPM(void *arg)
 
     //pthread_mutex_lock(&mut);
     pthread_mutex_lock(&rpmut);
-    RPM = Speed * 1000000 / Min / Tire_Perimeter_Ratio;
+    RPM = Speed * 10 * 1000000 / Min / Tire_Perimeter_Ratio;
     write(pipe3[1], &RPM, sizeof(int));
     //  pthread_cond_wait(&cmd, &mut);
     pthread_mutex_unlock(&rpmut);
@@ -595,25 +595,25 @@ void *Figures_Coolant(void *arg)
     {
       Coolant = 0;
     }
-    else if (Speed > 0 && Speed <= 40)
+    else if (Speed > 0 && Speed <= 4)
     {
-      Coolant = 40;
+      Coolant = 0.0;
     }
-    else if (Speed > 0 && Speed <= 80)
+    else if (Speed > 0 && Speed <= 8)
     {
-      Coolant = 76;
+      Coolant = 0.0;
     }
-    else if (Speed > 80 && Speed <= 140)
+    else if (Speed > 8 && Speed <= 14)
     {
-      Coolant = 82;
+      Coolant = 5.0;
     }
-    else if (Speed > 140 && Speed <= 160)
+    else if (Speed > 14 && Speed <= 16)
     {
-      Coolant = 97;
+      Coolant = 10.0;
     }
-    else if (Speed > 160 && Speed < 200)
+    else if (Speed > 16 && Speed < 20)
     {
-      Coolant = 95;
+      Coolant = 15.0;
     }
     write(pipe5[1], &Coolant, sizeof(int));
     //  pthread_cond_wait(&cmd, &mut);

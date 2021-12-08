@@ -14,12 +14,12 @@
 #define InitFeul 80
 
 //프로세스 통신 관련
-#define SPEED_KEY (key_t)60110
-#define RPM_KEY (key_t)60111
-#define FUEL_KEY (key_t)60112
-#define COOLANT_KEY (key_t)60113
-#define INPUT_SPEED_KEY (key_t)60114
-#define ACC_KEY (key_t)60115
+#define SPEED_KEY (key_t)60120
+#define RPM_KEY (key_t)60121
+#define FUEL_KEY (key_t)60122
+#define COOLANT_KEY (key_t)60123
+#define INPUT_SPEED_KEY (key_t)60124
+#define ACC_KEY (key_t)60125
 
 //표시될 data들 프로세스간 통신이 될때 사용됨
 int speedid;
@@ -89,11 +89,11 @@ void *Figures_Speed()
   while (1)
   {
     pthread_mutex_lock(&mut);
-    if (*speedVal < 30)
+    if (*speedVal < 5)
     {
       *speedVal += *accVal;
     }
-    else if (*speedVal >= 30)
+    else if (*speedVal >= 5)
     {
       *speedVal -= *accVal;
     }
@@ -110,43 +110,36 @@ void *Figures_RPM()
 {
   while (1)
   {
-    pthread_mutex_lock(&mut);
-    *rmpVal = 1;
-    if (*rpmVal < 6)
-    {
-      *rpmVal += *accVal;
-    }
-    else if (*speedVal >= 6)
-    {
-      *rpmVal -= *accVal;
-    }
-    pthread_cond_signal(&cmd);
-    pthread_mutex_unlock(&mut);
-    //printf("Speed\t: %.2lf (km/h)\n", *speedVal);
+    // pthread_mutex_lock(&mut);
+    pthread_mutex_lock(&rpmut);
+    *rpmVal = *speedVal * 10 * 1000000.0 / Min / Tire_Perimeter_Ratio;
+    //  pthread_cond_wait(&cmd, &mut);
+    pthread_mutex_unlock(&rpmut);
     usleep(1000000);
+    //pthread_mutex_unlock(&mut);
+
+    //printf("RPM\t: %.2lf (RPM)\n", *rpmVal);
   }
 }
 // 연료의 양을 계산하는 함수
 // 소모량 = 이동거리/8.7
 void *Figures_Fuel()
 {
-
+  *fuelVal = 80;
   while (1)
   {
-    pthread_mutex_lock(&mut);
-    *fuelVal = 80;
-    if (*fuelVal < 80)
-    {
-      *rpmVal += *accVal;
-    }
-    else if (*fuelVal >= 80)
-    {
-      *rpmVal -= *accVal;
-    }
-    pthread_cond_signal(&cmd);
-    pthread_mutex_unlock(&mut);
-    //printf("Speed\t: %.2lf (km/h)\n", *speedVal);
+
+    double result;
+    //  pthread_mutex_lock(&mut);
+
+    result = *rpmVal * Tire_Perimeter_Ratio / 1000000.0;
+    // pthread_cond_wait(&cmd, &mut);
+
+    //  pthread_mutex_unlock(&mut);
+    *fuelVal = *fuelVal - (result / 1000) / (8.7);
     usleep(1000000);
+
+    //printf("fuel\t: %.2lf (L)\n", *fuelVal);
   }
 }
 // 냉각수 온도
@@ -162,21 +155,21 @@ void *Figures_Coolant()
     {
       *coolantVal = 0.0;
     }
-    else if (*speedVal > 0 && *speedVal <= 80)
+    else if (*speedVal > 0 && *speedVal <= 8)
     {
-      *coolantVal = 80.0;
+      *coolantVal = 0.0;
     }
-    else if (*speedVal > 80 && *speedVal <= 140)
+    else if (*speedVal > 8 && *speedVal <= 14)
     {
-      *coolantVal = 85.0;
+      *coolantVal = 5.0;
     }
-    else if (*speedVal > 140 && *speedVal <= 160)
+    else if (*speedVal > 14 && *speedVal <= 16)
     {
-      *coolantVal = 90.0;
+      *coolantVal = 10.0;
     }
-    else if (*speedVal > 160 && *speedVal < 200)
+    else if (*speedVal > 16 && *speedVal < 20)
     {
-      *coolantVal = 95.0;
+      *coolantVal = 15.0;
     }
     usleep(1000000);
     //pthread_cond_wait(&cmd,&mut);

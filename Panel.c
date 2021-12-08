@@ -21,12 +21,12 @@
 #define SIMUL_TIME 15
 
 //프로세스 통신 관련
-#define SPEED_KEY (key_t)60110
-#define RPM_KEY (key_t)60111
-#define FUEL_KEY (key_t)60112
-#define COOLANT_KEY (key_t)60113
-#define INPUT_SPEED_KEY (key_t)60114
-#define ACC_KEY (key_t)60115
+#define SPEED_KEY (key_t)60120
+#define RPM_KEY (key_t)60121
+#define FUEL_KEY (key_t)60122
+#define COOLANT_KEY (key_t)60123
+#define INPUT_SPEED_KEY (key_t)60124
+#define ACC_KEY (key_t)60125
 
 //표시될 data들 프로세스간 통신이 될때 사용됨
 int speedid;
@@ -199,10 +199,10 @@ void drawInfo()
   {
     move_cur(SPEED_X - 4, i + 3);
     if (i % 2 != 0)
-      printf("%2d.0", (NAME_SPACE - 3 - i) * 2);
+      printf("%2d", (NAME_SPACE - 3 - i) * 2);
   }
   move_cur(SPEED_X - 2, NAME_SPACE);
-  printf("%5s", "SPEED");
+  printf("%5s", "TEMP");
   move_cur(SPEED_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
@@ -279,17 +279,17 @@ void simulMenu()
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
     move_cur(0, SIMUL_SPACE);
-    printf("Please input Temperature (10~30) >>");
+    printf("Please input temp (10~20) >>");
     __fpurge(stdin); //리눅스에서 __fpurge(stdin)
     scanf("%d", &sp);
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
-    if (sp <= 30 && sp >= 10)
+    if (sp <= 20 && sp >= 10)
     {
       move_cur(0, SIMUL_SPACE - 1);
       printf("                        ");
       move_cur(0, SIMUL_SPACE);
-      printf("Please input Cooling Level (1~3) >>");
+      printf("Please input Cooling level (1~3) >>");
       __fpurge(stdin); //리눅스에서 __fpurge(stdin)
       scanf("%d", &ac);
       if (ac >= 1 && ac <= 3)
@@ -338,7 +338,7 @@ void *updateSpeed(void *arg)
     if (sync_th != 0)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    speedChart = (int)((double)*speedVal / (double)3.7);
+    speedChart = (int)((double)*speedVal / 2);
     for (i = 0; i < 10; i++)
     {
       move_cur(SPEED_X, CHART_SPACE - i);
@@ -378,8 +378,6 @@ void *updateRPM(void *arg)
     move_cur(RPM_X - 2, VALUE_SPACE);
     printf("%5d", *rpmVal);
     sync_th++;
-    move_cur(0, 0);
-    printf("===========================================================================");
     pthread_mutex_unlock(&cursorMutex);
   }
 }
@@ -419,7 +417,7 @@ void *updateCoolant(void *arg)
     if (sync_th != 3)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    coolantChart = (int)((double)*coolantVal / 10);
+    coolantChart = (int)((double)*coolantVal / 2);
     for (i = 0; i < 10; i++)
     {
       move_cur(COOLANT_X, CHART_SPACE - i);
