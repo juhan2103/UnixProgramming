@@ -5,41 +5,41 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#define Tire_Perimeter_Ratio 1850.0
-#define Fuel_efficiency 8.6
+#define Fan_Perimeter_Ratio 1850.0
+#define Gas_efficiency 8.6
 #define mileage
-#define InitSpeed 30
-#define Initacceleration 2
+#define InitTemp 30
+#define InitCoolingLevel 2
 #define Min 60.0
-#define InitFeul 80
+#define InitGas 80
 
 //프로세스 통신 관련
-#define SPEED_KEY (key_t)60120
+#define TEMP_KEY (key_t)60120
 #define RPM_KEY (key_t)60121
-#define FUEL_KEY (key_t)60122
+#define GAS_KEY (key_t)60122
 #define COOLANT_KEY (key_t)60123
-#define INPUT_SPEED_KEY (key_t)60124
-#define ACC_KEY (key_t)60125
+#define INPUT_TEMP_KEY (key_t)60124
+#define COOL_KEY (key_t)60125
 
 //표시될 data들 프로세스간 통신이 될때 사용됨
-int speedid;
+int tempid;
 int rpmid;
-int fuelid;
+int gasid;
 int coolantid;
-int inputSpeedid;
-int accid;
-void *speed = (void *)0;
+int inputTempid;
+int coolid;
+void *temp = (void *)0;
 void *rpm = (void *)0;
-void *fuel = (void *)0;
+void *gas = (void *)0;
 void *coolant = (void *)0;
-void *inputSpeed = (void *)0;
-void *acc = (void *)0;
-int *speedVal = 0;
+void *inputTemp = (void *)0;
+void *cool = (void *)0;
+int *tempVal = 0;
 int *rpmVal = 0;
-int *fuelVal = 0;
+int *gasVal = 0;
 int *coolantVal = 0;
-int *inputSpeedVal = 0;
-int *accVal = 0;
+int *inputTempVal = 0;
+int *coolVal = 0;
 
 //동기화를 위한 tool
 pthread_mutex_t mut;
@@ -49,70 +49,70 @@ pthread_cond_t cmd;
 //프로세스 통신 관련 초기화
 void init_shm()
 {
-  if ((speedid = shmget(SPEED_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((tempid = shmget(TEMP_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
   if ((rpmid = shmget(RPM_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((fuelid = shmget(FUEL_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((gasid = shmget(GAS_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
   if ((coolantid = shmget(COOLANT_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((inputSpeedid = shmget(INPUT_SPEED_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((inputTempid = shmget(INPUT_TEMP_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((accid = shmget(ACC_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((coolid = shmget(COOL_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
 
-  if ((speed = shmat(speedid, 0, 0)) < 0)
+  if ((temp = shmat(tempid, 0, 0)) < 0)
     exit(5);
   if ((rpm = shmat(rpmid, 0, 0)) < 0)
     exit(5);
-  if ((fuel = shmat(fuelid, 0, 0)) < 0)
+  if ((gas = shmat(gasid, 0, 0)) < 0)
     exit(5);
   if ((coolant = shmat(coolantid, 0, 0)) < 0)
     exit(5);
-  if ((inputSpeed = shmat(inputSpeedid, 0, 0)) < 0)
+  if ((inputTemp = shmat(inputTempid, 0, 0)) < 0)
     exit(5);
-  if ((acc = shmat(accid, 0, 0)) < 0)
+  if ((cool = shmat(coolid, 0, 0)) < 0)
     exit(5);
 
-  speedVal = (int *)speed;
+  tempVal = (int *)temp;
   rpmVal = (int *)rpm;
-  fuelVal = (int *)fuel;
+  gasVal = (int *)gas;
   coolantVal = (int *)coolant;
-  inputSpeedVal = (int *)inputSpeed;
-  accVal = (int *)acc;
+  inputTempVal = (int *)inputTemp;
+  coolVal = (int *)cool;
 }
-// 속도값을 계산하는 함수
-// 초기에 속력값과 가속도값을 다른 프로세스에서 받아와 계산함
-void *Figures_Speed()
+// 온도값을 계산하는 함수
+// 초기에 온도값과 Cooling Level값을 다른 프로세스에서 받아와 계산함
+void *Figures_Temp()
 {
   while (1)
   {
     pthread_mutex_lock(&mut);
-    if (*speedVal < 5)
+    if (*tempVal < 5)
     {
-      *speedVal += *accVal;
+      *tempVal += *coolVal;
     }
-    else if (*speedVal >= 5)
+    else if (*tempVal >= 5)
     {
-      *speedVal -= *accVal;
+      *tempVal -= *coolVal;
     }
     pthread_cond_signal(&cmd);
     pthread_mutex_unlock(&mut);
-    //printf("Speed\t: %.2lf (km/h)\n", *speedVal);
+    //printf("Speed\t: %.2lf (km/h)\n", *tempVal);
     usleep(1000000);
   }
 }
 // RPM 값을 계산하는 함수
-// 스레드로 계산되는 속도값을 읽어와 순간 RPM을 계산하는 함수
-// RPM = 속도 * 1000000 / 60분 / 타이어의 지름
+// 스레드로 계산되는 온도값을 읽어와 순간 RPM을 계산하는 함수
+// RPM = 온도 * 10 * 1000000 / 60분 / Fan의 지름
 void *Figures_RPM()
 {
   while (1)
   {
     // pthread_mutex_lock(&mut);
     pthread_mutex_lock(&rpmut);
-    *rpmVal = *speedVal * 10 * 1000000.0 / Min / Tire_Perimeter_Ratio;
+    *rpmVal = *tempVal * 10 * 1000000.0 / Min / Fan_Perimeter_Ratio;
     //  pthread_cond_wait(&cmd, &mut);
     pthread_mutex_unlock(&rpmut);
     usleep(1000000);
@@ -121,53 +121,53 @@ void *Figures_RPM()
     //printf("RPM\t: %.2lf (RPM)\n", *rpmVal);
   }
 }
-// 연료의 양을 계산하는 함수
-// 소모량 = 이동거리/8.7
-void *Figures_Fuel()
+// 가스의 양을 계산하는 함수
+// 소모량 = 가스소모량/8.7
+void *Figures_Gas()
 {
-  *fuelVal = 80;
+  *gasVal = 80;
   while (1)
   {
 
     double result;
     //  pthread_mutex_lock(&mut);
 
-    result = *rpmVal * Tire_Perimeter_Ratio / 1000000.0;
+    result = *rpmVal * Fan_Perimeter_Ratio / 1000000.0;
     // pthread_cond_wait(&cmd, &mut);
 
     //  pthread_mutex_unlock(&mut);
-    *fuelVal = *fuelVal - (result / 1000) / (8.7);
+    *gasVal = *gasVal - (result / 1000) / (8.7);
     usleep(1000000);
 
-    //printf("fuel\t: %.2lf (L)\n", *fuelVal);
+    //printf("gas\t: %.2lf (L)\n", *gasVal);
   }
 }
 // 냉각수 온도
 // 실제로는 센서로 측정하지만
-// 연관 관계를 나타내기위헤 속도에 맞춰서 계산함
+// 연관 관계를 나타내기위헤 온도에 맞춰서 계산함
 void *Figures_Coolant()
 {
   while (1)
   {
 
     //pthread_mutex_lock(&mut);
-    if (*speedVal == 0.0)
+    if (*tempVal == 0.0)
     {
       *coolantVal = 0.0;
     }
-    else if (*speedVal > 0 && *speedVal <= 8)
+    else if (*tempVal > 0 && *tempVal <= 8)
     {
       *coolantVal = 0.0;
     }
-    else if (*speedVal > 8 && *speedVal <= 14)
+    else if (*tempVal > 8 && *tempVal <= 14)
     {
       *coolantVal = 5.0;
     }
-    else if (*speedVal > 14 && *speedVal <= 16)
+    else if (*tempVal > 14 && *tempVal <= 16)
     {
       *coolantVal = 10.0;
     }
-    else if (*speedVal > 16 && *speedVal < 20)
+    else if (*tempVal > 16 && *tempVal < 20)
     {
       *coolantVal = 15.0;
     }
@@ -186,28 +186,28 @@ int main()
   pthread_cond_init(&cmd, NULL);
   pthread_t threads[4];
 
-  re = pthread_create(&threads[0], NULL, Figures_Speed, NULL);
+  re = pthread_create(&threads[0], NULL, Figures_Temp, NULL);
   if (re < 0)
   {
-    //printf("threads[0] Figures_Speed error\n");
+    //printf("threads[0] Figures_Temp error\n");
     exit(0);
   }
   re = pthread_create(&threads[1], NULL, Figures_RPM, NULL);
   if (re < 0)
   {
-    //printf("threads[1] Figures_Speed error\n");
+    //printf("threads[1] Figures_Temp error\n");
     exit(0);
   }
-  re = pthread_create(&threads[2], NULL, Figures_Fuel, NULL);
+  re = pthread_create(&threads[2], NULL, Figures_Gas, NULL);
   if (re < 0)
   {
-    //printf("threads[2] Figures_Speed error\n");
+    //printf("threads[2] Figures_Temp error\n");
     exit(0);
   }
   re = pthread_create(&threads[3], NULL, Figures_Coolant, NULL);
   if (re < 0)
   {
-    //printf("threads[3] Figures_Speed error\n");
+    //printf("threads[3] Figures_Temp error\n");
     exit(0);
   }
 

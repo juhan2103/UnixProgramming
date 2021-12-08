@@ -7,9 +7,9 @@
 
 //인터페이스 좌표 관련
 #define MAX_X 75
-#define SPEED_X 15
+#define TEMP_X 15
 #define RPM_X 30
-#define FUEL_X 45
+#define GAS_X 45
 #define COOLANT_X 60
 #define CHART_SPACE 15
 #define NAME_SPACE 16
@@ -21,32 +21,32 @@
 #define SIMUL_TIME 15
 
 //프로세스 통신 관련
-#define SPEED_KEY (key_t)60120
+#define TEMP_KEY (key_t)60120
 #define RPM_KEY (key_t)60121
-#define FUEL_KEY (key_t)60122
+#define GAS_KEY (key_t)60122
 #define COOLANT_KEY (key_t)60123
-#define INPUT_SPEED_KEY (key_t)60124
-#define ACC_KEY (key_t)60125
+#define INPUT_TEMP_KEY (key_t)60124
+#define COOL_KEY (key_t)60125
 
 //표시될 data들 프로세스간 통신이 될때 사용됨
-int speedid;
+int tempid;
 int rpmid;
-int fuelid;
+int gasid;
 int coolantid;
-int inputSpeedid;
-int accid;
-void *speed = (void *)0;
+int inputTempid;
+int coolid;
+void *temp = (void *)0;
 void *rpm = (void *)0;
-void *fuel = (void *)0;
+void *gas = (void *)0;
 void *coolant = (void *)0;
-void *inputSpeed = (void *)0;
-void *acc = (void *)0;
-int *speedVal = 0;
+void *inputTemp = (void *)0;
+void *cool = (void *)0;
+int *tempVal = 0;
 int *rpmVal = 0;
-int *fuelVal = 0;
+int *gasVal = 0;
 int *coolantVal = 0;
-int *inputSpeedVal = 0;
-int *accVal = 0;
+int *inputTempVal = 0;
+int *coolVal = 0;
 
 //통신 관련 함수
 void init_shm();
@@ -61,14 +61,14 @@ void initPanel();
 
 //쓰레드 함수
 pthread_t readValueth;
-pthread_t updateSpeedth;
+pthread_t updateTempth;
 pthread_t updateRPMth;
-pthread_t updateFuelth;
+pthread_t updateGasth;
 pthread_t updateCoolantth;
 void *readValue(void *); //프로세스 통신용 함수
-void *updateSpeed(void *);
+void *updateTemp(void *);
 void *updateRPM(void *);
-void *updateFuel(void *);
+void *updateGas(void *);
 void *updateCoolant(void *);
 
 pthread_mutex_t cursorMutex;
@@ -80,7 +80,7 @@ void simulate();
 void simulMenu();
 
 //패널 업데이트 함수
-void updatePanel(int speed, int rpm, int fuel, int coolant);
+void updatePanel(int temp, int rpm, int gas, int coolant);
 
 //시뮬레이션 메뉴 값 범위 에러 함수
 void range_error();
@@ -113,7 +113,7 @@ int main(void)
   if (pid == 0)
   {
     //자식 프로세스
-    execl("./vrm", (char *)0);
+    execl("./rsm", (char *)0);
   }
   //부모 프로세스
   else
@@ -127,38 +127,38 @@ int main(void)
 //Shared Memory를 사용하기 위한 초기화
 void init_shm()
 {
-  if ((speedid = shmget(SPEED_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((tempid = shmget(TEMP_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
   if ((rpmid = shmget(RPM_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((fuelid = shmget(FUEL_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((gasid = shmget(GAS_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
   if ((coolantid = shmget(COOLANT_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((inputSpeedid = shmget(INPUT_SPEED_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((inputTempid = shmget(INPUT_TEMP_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
-  if ((accid = shmget(ACC_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
+  if ((coolid = shmget(COOL_KEY, sizeof(int), 0666 | IPC_CREAT)) < 0)
     exit(4);
 
-  if ((speed = shmat(speedid, 0, 0)) < 0)
+  if ((temp = shmat(tempid, 0, 0)) < 0)
     exit(5);
   if ((rpm = shmat(rpmid, 0, 0)) < 0)
     exit(5);
-  if ((fuel = shmat(fuelid, 0, 0)) < 0)
+  if ((gas = shmat(gasid, 0, 0)) < 0)
     exit(5);
   if ((coolant = shmat(coolantid, 0, 0)) < 0)
     exit(5);
-  if ((inputSpeed = shmat(inputSpeedid, 0, 0)) < 0)
+  if ((inputTemp = shmat(inputTempid, 0, 0)) < 0)
     exit(5);
-  if ((acc = shmat(accid, 0, 0)) < 0)
+  if ((cool = shmat(coolid, 0, 0)) < 0)
     exit(5);
 
-  speedVal = (int *)speed;
+  tempVal = (int *)temp;
   rpmVal = (int *)rpm;
-  fuelVal = (int *)fuel;
+  gasVal = (int *)gas;
   coolantVal = (int *)coolant;
-  inputSpeedVal = (int *)inputSpeed;
-  accVal = (int *)acc;
+  inputTempVal = (int *)inputTemp;
+  coolVal = (int *)cool;
 }
 
 //콘솔 환경에서 인터페이스를 그리기위해
@@ -194,16 +194,16 @@ void drawInfo()
   int y = 0;
   int i = 0;
 
-  //속도 부분 초기화
+  //온도 부분 초기화
   for (i = 12; i > 0; i--)
   {
-    move_cur(SPEED_X - 4, i + 3);
+    move_cur(TEMP_X - 4, i + 3);
     if (i % 2 != 0)
       printf("%2d", (NAME_SPACE - 3 - i) * 2);
   }
-  move_cur(SPEED_X - 2, NAME_SPACE);
+  move_cur(TEMP_X - 2, NAME_SPACE);
   printf("%5s", "TEMP");
-  move_cur(SPEED_X - 2, VALUE_SPACE);
+  move_cur(TEMP_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
   //RPM부분 초기화
@@ -218,14 +218,14 @@ void drawInfo()
   move_cur(RPM_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
-  //연료 부분 초기화
-  move_cur(FUEL_X - 4, NAME_SPACE - 10);
+  //가스 부분 초기화
+  move_cur(GAS_X - 4, NAME_SPACE - 10);
   printf("%3c", 'F');
-  move_cur(FUEL_X - 4, NAME_SPACE - 1);
+  move_cur(GAS_X - 4, NAME_SPACE - 1);
   printf("%3c", 'E');
-  move_cur(FUEL_X - 2, NAME_SPACE);
-  printf("%5s", "FUEL");
-  move_cur(FUEL_X - 2, VALUE_SPACE);
+  move_cur(GAS_X - 2, NAME_SPACE);
+  printf("%5s", "GAS");
+  move_cur(GAS_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
   //냉각수 부분 초기화
@@ -279,7 +279,7 @@ void simulMenu()
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
     move_cur(0, SIMUL_SPACE);
-    printf("Please input temp (10~20) >>");
+    printf("Please input temperature (10~20) >>");
     __fpurge(stdin); //리눅스에서 __fpurge(stdin)
     scanf("%d", &sp);
     move_cur(0, SIMUL_SPACE);
@@ -294,16 +294,16 @@ void simulMenu()
       scanf("%d", &ac);
       if (ac >= 1 && ac <= 3)
       {
-        *speedVal = sp;
-        *accVal = ac;
-        *fuelVal = 80;
+        *tempVal = sp;
+        *coolVal = ac;
+        *gasVal = 80;
         //스레드 생성 및 알람 등록
 
-        if (pthread_create(&updateSpeedth, NULL, &updateSpeed, NULL) < 0)
+        if (pthread_create(&updateTempth, NULL, &updateTemp, NULL) < 0)
           exit(2);
         if (pthread_create(&updateRPMth, NULL, &updateRPM, NULL) < 0)
           exit(2);
-        if (pthread_create(&updateFuelth, NULL, &updateFuel, NULL) < 0)
+        if (pthread_create(&updateGasth, NULL, &updateGas, NULL) < 0)
           exit(2);
         if (pthread_create(&updateCoolantth, NULL, &updateCoolant, NULL) < 0)
           exit(2);
@@ -329,28 +329,28 @@ void range_error()
 }
 
 //value에 따라 패널을 업데이트 해주는 thread들
-void *updateSpeed(void *arg)
+void *updateTemp(void *arg)
 {
   int i = 0;
-  int speedChart = 0;
+  int tempChart = 0;
   while (1)
   {
     if (sync_th != 0)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    speedChart = (int)((double)*speedVal / 2);
+    tempChart = (int)((double)*tempVal / 2);
     for (i = 0; i < 10; i++)
     {
-      move_cur(SPEED_X, CHART_SPACE - i);
+      move_cur(TEMP_X, CHART_SPACE - i);
       printf("  ");
     }
-    for (i = 0; i < speedChart; i++)
+    for (i = 0; i < tempChart; i++)
     {
-      move_cur(SPEED_X, CHART_SPACE - i);
+      move_cur(TEMP_X, CHART_SPACE - i);
       printf("#");
     }
-    move_cur(SPEED_X - 2, VALUE_SPACE);
-    printf("%5d", *speedVal);
+    move_cur(TEMP_X - 2, VALUE_SPACE);
+    printf("%5d", *tempVal);
     sync_th++;
     pthread_mutex_unlock(&cursorMutex);
   }
@@ -364,7 +364,7 @@ void *updateRPM(void *arg)
     if (sync_th != 1)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    rpmChart = (int)((double)*rpmVal / 500);
+    rpmChart = (int)((double)*rpmVal / 600);
     for (i = 0; i < 12; i++)
     {
       move_cur(RPM_X, CHART_SPACE - i);
@@ -381,28 +381,28 @@ void *updateRPM(void *arg)
     pthread_mutex_unlock(&cursorMutex);
   }
 }
-void *updateFuel(void *arg)
+void *updateGas(void *arg)
 {
   int i = 0;
-  int fuelChart = 0;
+  int gasChart = 0;
   while (1)
   {
     if (sync_th != 2)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    fuelChart = (int)((double)*fuelVal / 10);
+    gasChart = (int)((double)*gasVal / 10);
     for (i = 0; i < 10; i++)
     {
-      move_cur(FUEL_X, CHART_SPACE - i);
+      move_cur(GAS_X, CHART_SPACE - i);
       printf("  ");
     }
-    for (i = 0; i < fuelChart; i++)
+    for (i = 0; i < gasChart; i++)
     {
-      move_cur(FUEL_X, CHART_SPACE - i);
+      move_cur(GAS_X, CHART_SPACE - i);
       printf("#");
     }
-    move_cur(FUEL_X - 2, VALUE_SPACE);
-    printf("%5d", *fuelVal);
+    move_cur(GAS_X - 2, VALUE_SPACE);
+    printf("%5d", *gasVal);
     sync_th++;
     pthread_mutex_unlock(&cursorMutex);
   }

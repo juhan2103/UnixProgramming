@@ -9,9 +9,9 @@
 
 //인터페이스 좌표 관련
 #define MAX_X 75
-#define SPEED_X 15
+#define TEMP_X 15
 #define RPM_X 30
-#define FUEL_X 45
+#define GAS_X 45
 #define COOLANT_X 60
 #define CHART_SPACE 15
 #define NAME_SPACE 16
@@ -22,27 +22,27 @@
 #define UPDATE_TURM 1
 #define SIMUL_TIME 15
 
-// 속도 RPM 연료 냉각수 온도 계산 관련
-#define Tire_Perimeter_Ratio 1850
-#define Fuel_efficiency 9
-#define InitSpeed 80
-#define Initacceleration 3
+// 온도 RPM 가스 냉각수 온도 계산 관련
+#define Fan_Perimeter_Ratio 1850
+#define Gas_efficiency 9
+#define InitTemp 80
+#define InitCoolingLevel 3
 #define Min 60
-#define InitFeul 80
+#define InitGas 80
 
 #define SIZE 256
 //표시될 data들 프로세스간 통신이 될때 사용됨
-int speed = 200;
+int temp = 200;
 int rpm = 6000;
-int fuel = 100;
+int gas = 100;
 int coolant = 1000;
 
 // 프로세스 통신에 필요한 int 형 배열과 버퍼
 int pipe1[2], pipe2[2], pipe3[2], pipe4[2], pipe5[2];
 int buffer1, buffer2, buffer3, buffer4, buffer5;
-int Speed = 80;
-int Acceleration = 3;
-int Fuel = InitFeul;
+int Temp = 80;
+int Cooling = 3;
+int Gas = InitGas;
 int Coolant = 0;
 int RPM = 0;
 
@@ -58,9 +58,9 @@ void initPanel();
 
 //쓰레드 함수
 pthread_t readValueth;
-pthread_t updateSpeedth;
+pthread_t updateTempth;
 pthread_t updateRPMth;
-pthread_t updateFuelth;
+pthread_t updateGasth;
 pthread_t updateCoolantth;
 
 //동기화를 위한 tool
@@ -74,7 +74,7 @@ void simulate();
 void simulMenu();
 
 //패널 업데이트 함수
-void updatePanel(int speed, int rpm, int fuel, int coolant);
+void updatePanel(int temp, int rpm, int gas, int coolant);
 
 //시뮬레이션 메뉴 값 범위 에러 함수
 void range_error();
@@ -83,15 +83,15 @@ void range_error();
 void stopThread();
 
 void *readValue(void *); //프로세스 통신용 함수
-void *updateSpeed(void *);
+void *updateTemp(void *);
 void *updateRPM(void *);
-void *updateFuel(void *);
+void *updateGas(void *);
 void *updateCoolant(void *);
 
 //계산 함수들
-void *Figures_Speed(void *);
+void *Figures_Temp(void *);
 void *Figures_RPM(void *);
-void *Figures_Fuel(void *);
+void *Figures_Gas(void *);
 void *Figures_Coolant(void *);
 void run_thread();
 
@@ -158,16 +158,16 @@ void drawInfo()
   int y = 0;
   int i = 0;
 
-  //속도 부분 초기화
+  //온도 부분 초기화
   for (i = 10; i > 0; i--)
   {
-    move_cur(SPEED_X - 4, i + 5);
+    move_cur(TEMP_X - 4, i + 5);
     if (i % 2 != 0)
       printf("%3d", (NAME_SPACE - 3 - i) * 2);
   }
-  move_cur(SPEED_X - 2, NAME_SPACE);
+  move_cur(TEMP_X - 2, NAME_SPACE);
   printf("%5s", "TEMP");
-  move_cur(SPEED_X - 2, VALUE_SPACE);
+  move_cur(TEMP_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
   //RPM부분 초기화
@@ -182,14 +182,14 @@ void drawInfo()
   move_cur(RPM_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
-  //연료 부분 초기화
-  move_cur(FUEL_X - 4, NAME_SPACE - 10);
+  //가스 부분 초기화
+  move_cur(GAS_X - 4, NAME_SPACE - 10);
   printf("%3c", 'F');
-  move_cur(FUEL_X - 4, NAME_SPACE - 1);
+  move_cur(GAS_X - 4, NAME_SPACE - 1);
   printf("%3c", 'E');
-  move_cur(FUEL_X - 2, NAME_SPACE);
-  printf("%5s", "FUEL");
-  move_cur(FUEL_X - 2, VALUE_SPACE);
+  move_cur(GAS_X - 2, NAME_SPACE);
+  printf("%5s", "GAS");
+  move_cur(GAS_X - 2, VALUE_SPACE);
   printf("%3d", 0);
 
   //냉각수 부분 초기화
@@ -236,8 +236,8 @@ void simulate()
 void simulMenu()
 {
   int input = -1;
-  int p1Speed = 0;
-  int p1Acc = 0;
+  int p1Temp = 0;
+  int p1Cool = 0;
   int check;
   int i = 0; //for 문 제어 변수
 
@@ -252,29 +252,29 @@ void simulMenu()
     move_cur(0, SIMUL_SPACE);
     printf("Please input temperature (10~20) >>");
     __fpurge(stdin); //리눅스에서 __fpurge(stdin)
-    scanf("%d", &p1Speed);
+    scanf("%d", &p1Temp);
     move_cur(0, SIMUL_SPACE);
     printf("                                                         ");
-    if (p1Speed <= 20 && p1Speed >= 10)
+    if (p1Temp <= 20 && p1Temp >= 10)
     {
       move_cur(0, SIMUL_SPACE - 1);
       printf("                        ");
       move_cur(0, SIMUL_SPACE);
       printf("Please input Cooling level (1~3) >>");
       __fpurge(stdin); //리눅스에서 __fpurge(stdin)
-      scanf("%d", &p1Acc);
-      if (p1Acc >= 1 && p1Acc <= 3)
+      scanf("%d", &p1Cool);
+      if (p1Cool >= 1 && p1Cool <= 3)
       {
         //이부분에 프로세스간 통신 작성하면 됨
-        write(pipe1[1], &p1Speed, sizeof(int));
-        write(pipe1[1], &p1Acc, sizeof(int));
+        write(pipe1[1], &p1Temp, sizeof(int));
+        write(pipe1[1], &p1Cool, sizeof(int));
         //스레드 생성 및 알람 등록
 
-        if (pthread_create(&updateSpeedth, NULL, &updateSpeed, NULL) < 0)
+        if (pthread_create(&updateTempth, NULL, &updateTemp, NULL) < 0)
           exit(2);
         if (pthread_create(&updateRPMth, NULL, &updateRPM, NULL) < 0)
           exit(2);
-        if (pthread_create(&updateFuelth, NULL, &updateFuel, NULL) < 0)
+        if (pthread_create(&updateGasth, NULL, &updateGas, NULL) < 0)
           exit(2);
         if (pthread_create(&updateCoolantth, NULL, &updateCoolant, NULL) < 0)
           exit(2);
@@ -295,15 +295,15 @@ void simulMenu()
 //시뮬레이션의 값 범위 에러 메시지 함수
 void range_error()
 {
-  printf("정확한 값을 입력해주세요");
+  printf("Please insert correct input");
 }
 
 //value에 따라 패널을 업데이트 해주는 thread들
-void *updateSpeed(void *arg)
+void *updateTemp(void *arg)
 {
   int i = 0;
   int k = 0;
-  int speedChart = 0;
+  int tempChart = 0;
   int nread = 0;
 
   //close(pipe2[1]);
@@ -321,25 +321,25 @@ void *updateSpeed(void *arg)
         break;
       }
     default:
-      speed = buffer2;
+      temp = buffer2;
       break;
     }
 
     pthread_mutex_lock(&cursorMutex);
 
-    speedChart = (int)((double)speed / 3);
+    tempChart = (int)((double)temp / 3);
     for (i = 0; i < 10; i++)
     {
-      move_cur(SPEED_X, CHART_SPACE - i);
+      move_cur(TEMP_X, CHART_SPACE - i);
       printf("  ");
     }
-    for (i = 0; i < speedChart; i++)
+    for (i = 0; i < tempChart; i++)
     {
-      move_cur(SPEED_X, CHART_SPACE - i);
+      move_cur(TEMP_X, CHART_SPACE - i);
       printf("O");
     }
-    move_cur(SPEED_X - 2, VALUE_SPACE);
-    printf("%5d", speed);
+    move_cur(TEMP_X - 2, VALUE_SPACE);
+    printf("%5d", temp);
 
     sync_th++;
     pthread_mutex_unlock(&cursorMutex);
@@ -371,7 +371,7 @@ void *updateRPM(void *arg)
     }
     pthread_mutex_lock(&cursorMutex);
 
-    rpmChart = (int)((double)rpm / 500);
+    rpmChart = (int)((double)rpm / 600);
     for (i = 0; i < 12; i++)
     {
       move_cur(RPM_X, CHART_SPACE - i);
@@ -388,10 +388,10 @@ void *updateRPM(void *arg)
     pthread_mutex_unlock(&cursorMutex);
   }
 }
-void *updateFuel(void *arg)
+void *updateGas(void *arg)
 {
   int i = 0;
-  int fuelChart = 0;
+  int gasChart = 0;
   int nread = 0;
 
   //  close(pipe4[1]);
@@ -409,25 +409,25 @@ void *updateFuel(void *arg)
         break;
       }
     default:
-      fuel = buffer4;
+      gas = buffer4;
       break;
     }
 
     pthread_mutex_lock(&cursorMutex);
 
-    fuelChart = (int)((double)fuel / 10);
+    gasChart = (int)((double)gas / 10);
     for (i = 0; i < 10; i++)
     {
-      move_cur(FUEL_X, CHART_SPACE - i);
+      move_cur(GAS_X, CHART_SPACE - i);
       printf("  ");
     }
-    for (i = 0; i < fuelChart; i++)
+    for (i = 0; i < gasChart; i++)
     {
-      move_cur(FUEL_X, CHART_SPACE - i);
+      move_cur(GAS_X, CHART_SPACE - i);
       printf("O");
     }
-    move_cur(FUEL_X - 2, VALUE_SPACE);
-    printf("%5d", fuel);
+    move_cur(GAS_X - 2, VALUE_SPACE);
+    printf("%5d", gas);
     sync_th++;
     pthread_mutex_unlock(&cursorMutex);
   }
@@ -485,18 +485,18 @@ void stopThread()
   move_cur(0, SIMUL_SPACE + 1);
   exit(0);
 }
-// 속도값을 계산하는 함수
-// 초기에 속력값과 가속도값을 다른 프로세스에서 받아와 계산함
-void *Figures_Speed(void *arg)
+// 온도값을 계산하는 함수
+// 초기에 온도값과 Cooling Level값을 다른 프로세스에서 받아와 계산함
+void *Figures_Temp(void *arg)
 {
   //  close(pipe1[1]);
   //close(pipe2[0]);
 
   int nread = 0;
   read(pipe1[0], &buffer1, sizeof(int));
-  Speed = buffer1;
+  Temp = buffer1;
   read(pipe1[0], &buffer1, sizeof(int));
-  Acceleration = buffer1;
+  Cooling = buffer1;
   while (1)
   {
     /*fcntl(pipe1[0], F_SETFL, O_NONBLOCK);
@@ -507,7 +507,7 @@ void *Figures_Speed(void *arg)
 		break;
 		}
 		default:
-		Speed = buffer1;
+		Temp = buffer1;
 		break;
 		}
 		switch (nread = read(pipe6[0], &buffer6, sizeof(int))) {
@@ -516,29 +516,29 @@ void *Figures_Speed(void *arg)
 		break;
 		}
 		default:
-		Acceleration = buffer6;
+		Cooling = buffer6;
 		break;
 		}*/
 
     pthread_mutex_lock(&mut);
-    if (Speed < 5)
+    if (Temp < 5)
     {
-      Speed += Acceleration;
+      Temp += Cooling;
     }
-    else if (Speed >= 5)
+    else if (Temp >= 5)
     {
-      Speed -= Acceleration;
+      Temp -= Cooling;
     }
-    write(pipe2[1], &Speed, sizeof(int));
+    write(pipe2[1], &Temp, sizeof(int));
     //pthread_cond_signal(&cmd);
     pthread_mutex_unlock(&mut);
-    //  printf("Speed\t: %.2lf (km/h)\n", Speed);
+    //  printf("Temp\t: %.2lf (km/h)\n", Temp);
     sleep(1);
   }
 }
 // RPM 값을 계산하는 함수
-// 스레드로 계산되는 속도값을 읽어와 순간 RPM을 계산하는 함수
-// RPM = 속도 * 1000000 / 60분 / 타이어의 지름
+// 스레드로 계산되는 온도값을 읽어와 순간 RPM을 계산하는 함수
+// RPM = 속도 * 1000000 / 60분 / Fan의 지름
 void *Figures_RPM(void *arg)
 {
   //close(pipe3[0]);
@@ -548,7 +548,7 @@ void *Figures_RPM(void *arg)
 
     //pthread_mutex_lock(&mut);
     pthread_mutex_lock(&rpmut);
-    RPM = Speed * 10 * 1000000 / Min / Tire_Perimeter_Ratio;
+    RPM = Temp * 10 * 1000000 / Min / Fan_Perimeter_Ratio;
     write(pipe3[1], &RPM, sizeof(int));
     //  pthread_cond_wait(&cmd, &mut);
     pthread_mutex_unlock(&rpmut);
@@ -557,9 +557,9 @@ void *Figures_RPM(void *arg)
     //  printf("RPM\t: %.2lf (RPM)\n", RPM);
   }
 }
-// 연료의 양을 계산하는 함수
-// 소모량 = 이동거리/8.7
-void *Figures_Fuel(void *arg)
+// 가스의 양을 계산하는 함수
+// 소모량 = 전력소모량/8.7
+void *Figures_Gas(void *arg)
 {
 
   //close(pipe4[0]);
@@ -569,20 +569,20 @@ void *Figures_Fuel(void *arg)
     double result;
     //pthread_mutex_lock(&mut);
 
-    result = RPM * Tire_Perimeter_Ratio / 1000000;
+    result = RPM * Fan_Perimeter_Ratio / 1000000;
 
     //  pthread_cond_wait(&cmd, &mut);
 
     //  pthread_mutex_unlock(&mut);
-    Fuel = Fuel - (result / 1000) / Fuel_efficiency;
-    write(pipe4[1], &Fuel, sizeof(int));
-    //printf("fuel\t: %.2lf (L)\n", Fuel);
+    Gas = Gas - (result / 1000) / Gas_efficiency;
+    write(pipe4[1], &Gas, sizeof(int));
+    //printf("gas\t: %.2lf (L)\n", Gas);
     sleep(1);
   }
 }
 // 냉각수 온도
 // 실제로는 센서로 측정하지만
-// 연관 관계를 나타내기위헤 속도에 맞춰서 계산함
+// 연관 관계를 나타내기위헤 온도에 맞춰서 계산함
 void *Figures_Coolant(void *arg)
 {
   //close(pipe5[0]);
@@ -591,27 +591,27 @@ void *Figures_Coolant(void *arg)
   {
 
     //pthread_mutex_lock(&mut);
-    if (Speed == 0)
+    if (Temp == 0)
     {
       Coolant = 0;
     }
-    else if (Speed > 0 && Speed <= 4)
+    else if (Temp > 0 && Temp <= 4)
     {
       Coolant = 0.0;
     }
-    else if (Speed > 0 && Speed <= 8)
+    else if (Temp > 0 && Temp <= 8)
     {
       Coolant = 0.0;
     }
-    else if (Speed > 8 && Speed <= 14)
+    else if (Temp > 8 && Temp <= 14)
     {
       Coolant = 5.0;
     }
-    else if (Speed > 14 && Speed <= 16)
+    else if (Temp > 14 && Temp <= 16)
     {
       Coolant = 10.0;
     }
-    else if (Speed > 16 && Speed < 20)
+    else if (Temp > 16 && Temp < 20)
     {
       Coolant = 15.0;
     }
@@ -630,10 +630,10 @@ void run_thread()
   pthread_cond_init(&cmd, NULL);
   pthread_t thread1, thread2, thread3, thread4;
 
-  re = pthread_create(&thread1, NULL, Figures_Speed, NULL);
+  re = pthread_create(&thread1, NULL, Figures_Temp, NULL);
   if (re < 0)
   {
-    printf("threads[0] Figures_Speed error\n");
+    printf("threads[0] Figures_Temp error\n");
     exit(0);
   }
   re = pthread_create(&thread2, NULL, Figures_RPM, NULL);
@@ -642,10 +642,10 @@ void run_thread()
     printf("threads[1] Figures_RPM error\n");
     exit(0);
   }
-  re = pthread_create(&thread3, NULL, Figures_Fuel, NULL);
+  re = pthread_create(&thread3, NULL, Figures_Gas, NULL);
   if (re < 0)
   {
-    printf("threads[2] Figures_Fuel error\n");
+    printf("threads[2] Figures_Gas error\n");
     exit(0);
   }
   re = pthread_create(&thread4, NULL, Figures_Coolant, NULL);
