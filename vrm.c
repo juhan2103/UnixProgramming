@@ -5,7 +5,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
-#define Tire_Perimeter_Ratio 130.0
+#define Tire_Perimeter_Ratio 1850.0
 #define Fuel_efficiency 8.6
 #define mileage
 #define InitSpeed 30
@@ -89,11 +89,11 @@ void *Figures_Speed()
   while (1)
   {
     pthread_mutex_lock(&mut);
-    if (*speedVal < 220)
+    if (*speedVal < 30)
     {
       *speedVal += *accVal;
     }
-    else if (*speedVal >= 220)
+    else if (*speedVal >= 30)
     {
       *speedVal -= *accVal;
     }

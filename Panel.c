@@ -338,7 +338,7 @@ void *updateSpeed(void *arg)
     if (sync_th != 0)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    speedChart = (int)((double)*speedVal / (double)3.8);
+    speedChart = (int)((double)*speedVal / (double)3.7);
     for (i = 0; i < 10; i++)
     {
       move_cur(SPEED_X, CHART_SPACE - i);
@@ -364,7 +364,7 @@ void *updateRPM(void *arg)
     if (sync_th != 1)
       continue;
     pthread_mutex_lock(&cursorMutex);
-    rpmChart = (int)((double)*rpmVal / 500);
+    rpmChart = (int)((double)*rpmVal / 50);
     for (i = 0; i < 12; i++)
     {
       move_cur(RPM_X, CHART_SPACE - i);
@@ -378,6 +378,8 @@ void *updateRPM(void *arg)
     move_cur(RPM_X - 2, VALUE_SPACE);
     printf("%5d", *rpmVal);
     sync_th++;
+    move_cur(0, 0);
+    printf("===========================================================================");
     pthread_mutex_unlock(&cursorMutex);
   }
 }
