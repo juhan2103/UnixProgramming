@@ -43,12 +43,6 @@ make
 ./Panel
 ```
 
-- MP
-
-```
-./MP
-```
-
 ## 협업자
 
 - [정상원](https://github.com/jsw0402)<br/>
